@@ -1,0 +1,437 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+#
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+Description: >
+  Template for the parts of the Workspaces portal that can be automated.
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Name of the S3 bucket that will host the single-page web application
+    Default: workspacesportal
+  DDBTable:
+    Type: String
+    Description: DynamoDB table to create
+    Default: workspacesportal
+  UniqueSuffix:
+    Type: String
+    Description: Optional suffix to make identifying stack resources easier and to avoid conflicts
+
+Outputs:
+  APIGatewayId:
+    Value: !Ref APIGateway
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoUserPoolClientId:
+    Value: !Ref UserPoolAppClient
+
+Resources: 
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      AccessControl: "PublicRead"
+      WebsiteConfiguration: 
+        IndexDocument: "index.html"
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Action: "s3:GetObject"
+            Principal: "*"
+            Effect: "Allow"
+            Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DDBTable
+      AttributeDefinitions:
+        - AttributeName: "WorkspaceId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "WorkspaceId"
+          KeyType: "HASH"
+      ProvisionedThroughput: 
+        ReadCapacityUnits: "10"
+        WriteCapacityUnits: "10"
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: DynamoDBPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                - "dynamodb:UpdateItem"
+                - "dynamodb:Scan"
+                - "dynamodb:GetItem"
+                - "dynamodb:PutItem"
+                - "dynamodb:DeleteItem"
+                Effect: "Allow"
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DDBTable}"
+        - PolicyName: WorkspacesPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                - "workspaces:DescribeWorkspaces"
+                - "workspaces:RebootWorkspaces"
+                - "workspaces:RebuildWorkspaces"
+                - "workspaces:TerminateWorkspaces"
+                - "workspaces:DescribeWorkspaceDirectories"
+                - "workspaces:StopWorkspaces"
+                - "workspaces:StartWorkspaces"
+                - "workspaces:DescribeWorkspacesConnectionStatus"
+                Effect: "Allow"
+                Resource: "*"
+        - PolicyName: EC2Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                - "ec2:DescribeRegions"
+                Effect: "Allow"
+                Resource: "*"
+
+  LambdaFunctionFindInstances:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaRole
+    Properties:
+      FunctionName: !Sub "WorkspacesPortalFindInstances${UniqueSuffix}"
+      Code:
+        S3Bucket: "gumbyadventures"
+        S3Key: "resources/lambda_workspaces_import.zip"
+      Description: "Workspaces portal function to find all Workspaces instances in all applicable regions."
+      Handler: "lambda_workspaces_import.lambda_handler"
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: "python3.6"
+      Timeout: "300"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref DDBTable
+
+  LambdaFunctionPortalActions:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaRole
+    Properties:
+      FunctionName: !Sub "WorkspacesPortalActions${UniqueSuffix}"
+      Code:
+        S3Bucket: "gumbyadventures"
+        S3Key: "resources/lambda_workspaces_actions.zip"
+      Description: "Workspaces portal function to perform actions as called by API Gateway."
+      Handler: "lambda_workspaces_actions.lambda_handler"
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: "python3.6"
+      Timeout: "10"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref DDBTable
+
+  LambdaFunctionListInstances:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaRole
+    Properties:
+      FunctionName: !Sub "WorkspacesPortalListInstances${UniqueSuffix}"
+      Code:
+        S3Bucket: "gumbyadventures"
+        S3Key: "resources/lambda_workspaces_list_instances.zip"
+      Description: "Workspaces portal function to return a list of Workspaces instances when called by API Gateway."
+      Handler: "lambda_workspaces_list_instances.lambda_handler"
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: "python3.6"
+      Timeout: "10"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref DDBTable
+
+  LambdaFunctionPortalReaper:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaRole
+    Properties:
+      FunctionName: !Sub "WorkspacesPortalReaper${UniqueSuffix}"
+      Code:
+        S3Bucket: "gumbyadventures"
+        S3Key: "resources/lambda_workspaces_reaper.zip"
+      Description: "Workspaces portal function to remove deleted Workspaces instances from the DynamoDB table."
+      Handler: "lambda_workspaces_reaper.lambda_handler"
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: "python3.6"
+      Timeout: "300"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref DDBTable
+
+  LambdaListPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn: APIGateway
+    Properties:
+      Action: "lambda:invokeFunction"
+      FunctionName: !GetAtt LambdaFunctionListInstances.Arn
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${APIGateway}/*"
+
+  LambdaActionPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn: APIGateway
+    Properties:
+      Action: "lambda:invokeFunction"
+      FunctionName: !GetAtt LambdaFunctionPortalActions.Arn
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${APIGateway}/*"
+
+  DiscoverEvent:
+    Type: "AWS::Events::Rule"
+    DependsOn: LambdaFunctionFindInstances
+    Properties:
+      Name: !Sub "WorkspacesDiscovery${UniqueSuffix}"
+      ScheduleExpression: "rate(5 minutes)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt LambdaFunctionFindInstances.Arn
+          Id: "InstanceDiscovery"
+
+  DiscoverEventPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn:
+      - LambdaFunctionFindInstances
+      - DiscoverEvent
+    Properties:
+      FunctionName: !Ref LambdaFunctionFindInstances
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt DiscoverEvent.Arn
+
+  ReaperEvent:
+    Type: "AWS::Events::Rule"
+    DependsOn: LambdaFunctionPortalReaper
+    Properties:
+      Name: !Sub "WorkspacesReaper${UniqueSuffix}"
+      ScheduleExpression: "rate(30 minutes)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt LambdaFunctionPortalReaper.Arn
+          Id: "InstanceReaper"
+
+  DiscoverEventPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn:
+      - LambdaFunctionFindInstances
+      - DiscoverEvent
+    Properties:
+      FunctionName: !Ref LambdaFunctionFindInstances
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt DiscoverEvent.Arn
+
+  UserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub "WorkspacesPortal${UniqueSuffix}"
+      Schema:
+        - AttributeDataType: "String"
+          Name: "ADGroups"
+          Mutable: true
+
+  UserPoolAppClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub "WorkspacesPortal${UniqueSuffix}"
+      ExplicitAuthFlows:
+        - "ADMIN_NO_SRP_AUTH"
+      ReadAttributes:
+        - "custom:ADGroups"
+      WriteAttributes:
+        - "custom:ADGroups"
+
+  APIGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: !Sub "WorkspacesPortal${UniqueSuffix}"
+      FailOnWarnings: True
+
+  APIGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: "Prod"
+      RestApiId: !Ref APIGateway
+      DeploymentId: !Ref APIGatewayDeployment
+      MethodSettings:
+        - ResourcePath: "/admin"
+          HttpMethod: GET
+          DataTraceEnabled: True
+        - ResourcePath: "/user"
+          HttpMethod: GET
+          DataTraceEnabled: True
+
+  APIGatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn:
+      - APIGateway
+      - APIGWMethodAdmin
+      - APIGWMethodUser
+    Properties:
+      RestApiId: !Ref APIGateway
+
+  APIGatewayAuthorizer:
+   Type: "AWS::ApiGateway::Authorizer"
+   Properties:
+    RestApiId: !Ref APIGateway
+    IdentitySource: "method.request.header.Authorization"
+    Name: "CognitoUserPool"
+    ProviderARNs:
+      - !GetAtt UserPool.Arn
+    Type: COGNITO_USER_POOLS
+
+  APIGatewayResourceAdmin:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      RestApiId: !Ref APIGateway
+      ParentId: !GetAtt APIGateway.RootResourceId
+      PathPart: "admin"
+
+  APIGWMethodAdmin:
+    Type: "AWS::ApiGateway::Method"
+    DependsOn: LambdaRole
+    Properties:
+      ResourceId: !Ref APIGatewayResourceAdmin
+      RestApiId: !Ref APIGateway
+      HttpMethod: "GET"
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref APIGatewayAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: "POST"
+        Uri: !Join ["", ["arn:aws:apigateway:", !Ref "AWS::Region", ":lambda:path/2015-03-31/functions/", !GetAtt LambdaFunctionPortalActions.Arn, "/invocations"]]
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: False
+
+  APIGWOptionsMethodAdmin:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ResourceId: !Ref APIGatewayResourceAdmin
+      RestApiId: !Ref APIGateway
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: "{'statusCode': 200}"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: False
+            method.response.header.Access-Control-Allow-Headers: False
+            method.response.header.Access-Control-Allow-Methods: False
+
+  APIGatewayResourceUser:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      RestApiId: !Ref APIGateway
+      ParentId: !GetAtt APIGateway.RootResourceId
+      PathPart: "user"
+
+  APIGWMethodUser:
+    Type: "AWS::ApiGateway::Method"
+    DependsOn: LambdaRole
+    Properties:
+      ResourceId: !Ref APIGatewayResourceUser
+      RestApiId: !Ref APIGateway
+      HttpMethod: "GET"
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref APIGatewayAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: "POST"
+        Uri: !Join ["", ["arn:aws:apigateway:", !Ref "AWS::Region", ":lambda:path/2015-03-31/functions/", !GetAtt LambdaFunctionListInstances.Arn, "/invocations"]]
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: False
+
+  APIGWOptionsMethodUser:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ResourceId: !Ref APIGatewayResourceUser
+      RestApiId: !Ref APIGateway
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: "{'statusCode': 200}"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: False
+            method.response.header.Access-Control-Allow-Headers: False
+            method.response.header.Access-Control-Allow-Methods: False

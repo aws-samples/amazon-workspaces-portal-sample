@@ -1,0 +1,128 @@
+body {
+ font-family: sans-serif;
+ font-size: 12px;
+}
+
+p, div {
+ line-height: 1.4;
+}
+
+.italic {
+ font-style: italic;
+}
+
+div.workspaceslist {
+ text-align: center;
+}
+
+div.noworkspaces {
+ text-align: center;
+ visibility: hidden;
+ font-size: 18px;
+}
+
+div.error {
+ text-align: center;
+ font-size: 18px;
+ color: red;
+}
+
+div.warning {
+ text-align: center;
+ font-size: 18px;
+ color: orange;
+}
+
+div.success {
+ text-align: center;
+ font-size: 18px;
+ color: green;
+}
+
+table.workspacesinfo {
+ border: 1px solid lightgray;
+ border-radius: 5px;
+ background-color: #eeeeee;
+ display: inline-block;
+ margin-right: 10px;
+ margin-left: 10px;
+ margin-bottom: 10px;
+ vertical-align: top;
+}
+
+table.workspacesinfo td {
+ padding: 10px; 
+}
+
+table.workspacesinfo td.title {
+ font-weight: bolder;
+}
+
+table.workspacesinfo td.link, table.workspacesinfo td.actions {
+ text-align: center;
+}
+
+table.workspacesinfo td.link a {
+ text-decoration: none;
+}
+
+table.workspacesinfo td.link a:hover {
+ font-weight: bold;
+}
+
+table.workspacesinfo td.actions {
+ padding-bottom: 15px;
+}
+
+table.workspacesinfo td.actions a {
+ text-decoration: none;
+ padding: 10px;
+ color: white;
+ border-radius: 5px;
+}
+
+table.workspacesinfo td.actions a.reboot {
+ background-color: lightgray;
+}
+
+table.workspacesinfo td.actions a.rebuild {
+ background-color: orange;
+}
+
+table.workspacesinfo td.actions a.start {
+ background-color: green;
+}
+
+table.workspacesinfo td.actions a.decommission, table.workspacesinfo td.actions a.stop {
+ background: red;
+}
+
+table.workspacesinfo td[class^="state-"] {
+ color: white;
+ font-weight: bolder;
+}
+
+table.workspacesinfo td[class^="state-"] span {
+ padding: 8px;
+}
+
+table.workspacesinfo td.state-available span, table.workspaces td.state-starting span {
+ background-color: green;
+}
+
+table.workspacesinfo td.state-suspended span, table.workspacesinfo td.state-stopping span,
+table.workspacesinfo td.state-rebuilding span {
+ background-color: yellow;
+}
+
+table.workspacesinfo td.state-stopped span,   table.workspacesinfo td.state-pending span,
+table.workspacesinfo td.state-unhealthy span, table.workspacesinfo td.state-rebooting span,
+table.workspacesinfo td.state-rebooting span {
+ background-color: orange;
+}
+}
+
+table.workspacesinfo td.state-impaired span,   table.workspacesinfo td.state-unhealthy span,
+table.workspacesinfo td.state-inoperable span, table.workspacesinfo td.state-error span {
+ background-color: red;
+}
