@@ -120,7 +120,7 @@ table.workspacesinfo td.state-unhealthy span, table.workspacesinfo td.state-rebo
 table.workspacesinfo td.state-rebooting span {
  background-color: orange;
 }
-}
+
 
 table.workspacesinfo td.state-impaired span,   table.workspacesinfo td.state-unhealthy span,
 table.workspacesinfo td.state-inoperable span, table.workspacesinfo td.state-error span {
