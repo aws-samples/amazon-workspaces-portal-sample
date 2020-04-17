@@ -27,7 +27,7 @@ S3BucketName      = "xxxxxxxxxxxx";
 
 USER_API_URL  = "https://"+APIGatewayId+".execute-api."+RegionName+".amazonaws.com/Prod/user/"
 ADMIN_API_URL = "https://"+APIGatewayId+".execute-api."+RegionName+".amazonaws.com/Prod/admin/"
-authRedirect  = "https://"+CognitoDomainName+".auth."+RegionName+".amazoncognito.com/login?response_type=token&client_id="+CognitoClientId+"&redirect_uri=https%3A%2F%2F"+S3BucketName+".s3.amazonaws.com%2Findex.html";
+authRedirect  = "https://"+CognitoDomainName+".auth."+RegionName+".amazoncognito.com/login?response_type=token&client_id="+CognitoClientId+"&redirect_uri=https%3A%2F%2F"+S3BucketName+".s3."+RegionName+".amazonaws.com%2Findex.html";
 
 function parseJWT(token) {
  var base64Url = token.split('.')[1];
