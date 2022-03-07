@@ -21,6 +21,7 @@ import boto3
 import os
 import logging
 import time
+import json
 from botocore.exceptions import ClientError,EndpointConnectionError
 
 RegistrationCodes = {}
@@ -49,8 +50,13 @@ def lambda_handler(event, context):
     global Logger,DDBTableName
     
     logging.basicConfig()
+    logging.getLogger('boto3').setLevel(logging.CRITICAL)
+    logging.getLogger('botocore').setLevel(logging.CRITICAL)
+    logging.getLogger('s3transfer').setLevel(logging.CRITICAL)
+    logging.getLogger('urllib3').setLevel(logging.CRITICAL)
     Logger = logging.getLogger()
-    Logger.setLevel(logging.INFO)
+    level = logging.getLevelName(os.environ.get("LOGLEVEL",'INFO'))
+    Logger.setLevel(level)
 
     if os.environ.get("DynamoDBTableName") is not None: DDBTableName = os.environ.get("DynamoDBTableName")
 
@@ -72,9 +78,23 @@ def lambda_handler(event, context):
     for TargetRegion in Regions:
         Logger.info("Checking: "+TargetRegion)
         WorkspacesClient = boto3.client("workspaces", region_name=TargetRegion)
+        paginator = WorkspacesClient.get_paginator("describe_workspaces")
      
         try:
-            ListResponse = WorkspacesClient.describe_workspaces()
+            ListResponse = {}
+            for page in paginator.paginate(PaginationConfig={"PageSize": 25}):
+                if ListResponse:
+                    ListResponse["Workspaces"] = (
+                        ListResponse["Workspaces"] + page["Workspaces"]
+                    )
+                else:
+                    ListResponse = {**ListResponse, **page}
+            logging.debug(
+                "ListResponse  %s, size %s",
+                ListResponse["Workspaces"],
+                len(ListResponse["Workspaces"]),
+            )
+            logging.info("Found %s workspaces", len(ListResponse["Workspaces"]))
         except EndpointConnectionError as e:
             Logger.warning("Could not connect to endpoint in region "+TargetRegion)
             continue
@@ -91,7 +111,20 @@ def lambda_handler(event, context):
         # It is more efficient this way even though we could call this API
         # individually for each instance we have in ListResponse
         #
-        ConnectionResponse = WorkspacesClient.describe_workspaces_connection_status()
+        Results = WorkspacesClient.describe_workspaces_connection_status()
+        ConnectionResponse = Results
+        while Results.get("NextToken"):
+            Results = WorkspacesClient.describe_workspaces_connection_status(
+                NextToken=Results["NextToken"]
+            )
+            ConnectionResponse["WorkspacesConnectionStatus"] = (
+                ConnectionResponse["WorkspacesConnectionStatus"]
+                + Results["WorkspacesConnectionStatus"]
+            )
+        logging.info(
+            "Found %s workspaces_connection_status",
+            len(ConnectionResponse["WorkspacesConnectionStatus"]),
+        )
         LastConnectedTime = {}
         for Connection in ConnectionResponse["WorkspacesConnectionStatus"]:
             try:
@@ -115,7 +148,9 @@ def lambda_handler(event, context):
             if "ComputerName"          in Instance:          Item["ComputerName"]  = {"S":Instance["ComputerName"]}
             if "IpAddress"             in Instance:          Item["IPAddress"]     = {"S":Instance["IpAddress"]}
             if Instance["WorkspaceId"] in LastConnectedTime: Item["LastConnected"] = {"N":LastConnectedTime[Instance["WorkspaceId"]]}
-
+            Logger.debug(
+                "  WorkspaceId: " + Instance["WorkspaceId"] + " " + json.dumps(Item)
+            )
             try:
                 DynamoDBClient.put_item(TableName=DDBTableName, Item=Item)
             except ClientError as e:
