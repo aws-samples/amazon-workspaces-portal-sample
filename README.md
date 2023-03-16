@@ -11,15 +11,17 @@ There are four Lambda functions:
  - lambda_workspaces_import.py
    - Periodically scans for Workspaces instances in regions it is configured to do so. Details are stored in a DynamoDB table.
  - lambda_workspaces_reaper.py
-   - Periodically scans the DynamoDB table and deletes Workspaces instances that are in the database but don't exist in the listed region any more.
+   - Periodically scans the DynamoDB table and deletes entries for Workspaces instances that are in the database but don't exist in the listed region any more. It does not delete Workspaces instances, only checks for their existence.
  - lambda_list_instances.py
    - Called from the web front end (via API Gateway) to return a list of Workspaces instances specific to the end-user or administrator that is logged in.
  - lambda_workspaces_actions.py
    - Called from the web front end (via API Gateway) to perform actions on specific Workspaces instances.
 
-As mentioned, there is a DynamoDB table while holds Workspaces instance details and API Gateway is used to received requests from the web front-end. Amazon S3 is used to store the static HTML for the web page (this should be customised with your corporate logo). The use of Amazon CloudFront is also recomendeded to deliver custom domain names and HTTPS support for the web front end.
+As mentioned, there is a DynamoDB table while holds Workspaces instance details and API Gateway is used to received requests from the web front-end. Amazon S3 is used to store the static HTML for the web page (this should be customised with your corporate logo). The use of Amazon CloudFront is also recomendeded to deliver custom domain names and HTTPS support for the web front end. This is not automatically created by the CloudFormation template. We recommend that you use [OAC to secure access to the S3 bucket](https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-serve-static-website/).
 
 Amazon Congito is used to authenticate users to the portal. It needs to be federated with Active Directory to provide a consistent username/password experience for the end-userrs. Federation also allows Active Directory to pass back group membership information that identifies end-users and administrators. The Lambda functions use the identities to ensure that users are only accessing Workspaces instances they are authorised to; and the API Gateway methods are authorised by Cognito.
+
+Two groups should be present in Active Directory: `WorkspacesUsers` and `WorkspacesAdmin`. Putting users in those groups results in approppropriate permissions within the portal. Users can only administer Workspaces instances that belong to them. Administrators have control over all Workspaces instances. Different group names may be used - the mapping is controlled in Active Directory Federation Services (ADFS) Issuance Policy (see [the blog post](https://aws.amazon.com/blogs/desktop-and-application-streaming/creating-a-self-service-portal-for-amazon-workspaces-end-users/) for more information).
 
 ## License Summary
 
