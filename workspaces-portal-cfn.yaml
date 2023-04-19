@@ -137,7 +137,7 @@ Resources:
       Description: "Workspaces portal function to find all Workspaces instances in all applicable regions."
       Handler: "lambda_workspaces_import.lambda_handler"
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.9"
+      Runtime: "python3.10"
       Timeout: "300"
       Environment:
         Variables:
@@ -154,7 +154,7 @@ Resources:
       Description: "Workspaces portal function to perform actions as called by API Gateway."
       Handler: "lambda_workspaces_actions.lambda_handler"
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.9"
+      Runtime: "python3.10"
       Timeout: "10"
       Environment:
         Variables:
@@ -171,7 +171,7 @@ Resources:
       Description: "Workspaces portal function to return a list of Workspaces instances when called by API Gateway."
       Handler: "lambda_workspaces_list_instances.lambda_handler"
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.9"
+      Runtime: "python3.10"
       Timeout: "10"
       Environment:
         Variables:
@@ -188,7 +188,7 @@ Resources:
       Description: "Workspaces portal function to remove deleted Workspaces instances from the DynamoDB table."
       Handler: "lambda_workspaces_reaper.lambda_handler"
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.9"
+      Runtime: "python3.10"
       Timeout: "300"
       Environment:
         Variables:
