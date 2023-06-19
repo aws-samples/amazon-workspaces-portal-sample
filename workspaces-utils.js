@@ -114,7 +114,7 @@ function RenderWorkspacesTiles(ListString, AdminList) {
  var HTML = "";
 
  try {
-  JSONResult = JSON.parse(ListString);
+  var JSONResult = JSON.parse(ListString);
  }
  catch(error) {
   console.log(error);
@@ -128,30 +128,25 @@ function RenderWorkspacesTiles(ListString, AdminList) {
   var WorkspacesCount = 0;
 
   for(i = 0; i < JSONResult.Workspaces.length; i++) {
-   var Div = ""
+   var Div = "<tr>"
    var Instance = JSONResult.Workspaces[i];
 
-
-   Div += "<table class='workspacesinfo'>";
-
    if (AdminList) {
-    Div += "<tr><td class='title'>Username:</td><td class='info'>"+Instance.UserName+"</td></tr>";
+    Div += "<td>"+Instance.UserName+"</td>";
    }
 
-   Div += "<tr><td class='title'>Workspace id:</td><td class='info'>"+Instance.WorkspaceId+"</td></tr>";
+   Div += "<td>"+Instance.WorkspaceId+" "+((Instance.ComputerName != undefined) ? "("+Instance.ComputerName+")" : "")+"</td>";
 
-   ComputerName =  (Instance.ComputerName != undefined) ? Instance.ComputerName : "<span class='italic'>Unknown</span>";
-   Div += "<tr><td class='title'>Computer name:</td><td class='info'>"+ComputerName+"</td></tr>";
-
-   Div += "<tr><td class='title'>Region:</td><td class='info'>"+Instance.Region+"</td></tr>";
-   Div += "<tr><td class='title'>State:</td><td class='state-"+Instance.InstanceState.toLowerCase()+"'><span>"+Instance.InstanceState+"</span></td></tr>";
+   Div += "<td>"+Instance.Region+"</td>";
+   Div += "<td class='state-"+Instance.InstanceState.toLowerCase()+"'>"+Instance.InstanceState+"</td>";
 
    if (AdminList) {
-    Div += "<tr><td class='title'>Running mode:</td><td class='info'>"+Instance.RunningMode+"</td></tr>";
+    Div += "<td>"+Instance.RunningMode+"</td>";
+   }
 
-    IPAddress = (Instance.IPAddress != undefined) ? Instance.IPAddress : "<span class='italic'>Unknown</span>";
-    Div += "<tr><td class='title'>IP address:</td><td class='info'>"+IPAddress+"</td></tr>";
+   Div += "<td>"+((Instance.IPAddress != undefined) ? Instance.IPAddress : "Unknown")+"</td>";
 
+   if (AdminList) {
     var Connected = "";
     if( Instance.LastConnected != undefined) {
      Connected = new Date(0);
@@ -160,16 +155,12 @@ function RenderWorkspacesTiles(ListString, AdminList) {
     else {
      Connected = "<span class='italic'>Never</span>"
     }
-    Div += "<tr><td class='title'>Last connected:</td><td class='info'>"+Connected+"</td></tr>";
+    Div += "<td>"+Connected+"</td>";
    }
 
-   Div += "<tr><td class='title'>Registration code:</td><td class='info'>"+Instance.RegCode+"</td></tr>";
+   Div += "<td>"+Instance.RegCode+"</td>";
 
-   if (! AdminList) {
-    Div += "<tr><td colspan='2' class='link'><a href='https://clients.amazonworkspaces.com/' target='_blank'>Download the Workspaces client</a></td></tr>";
-   }
-
-   Div += "<tr><td colspan='2' class='actions'>"
+   Div += "<td class='actions'>"
 
    if (Instance.RunningMode == "AUTO_STOP") {
     if (Instance.InstanceState == "STOPPED") {
@@ -188,15 +179,23 @@ function RenderWorkspacesTiles(ListString, AdminList) {
    if (AdminList) {
     Div += "&nbsp;&nbsp;<a href='javascript:WorkspacesAction(\"Decommission\",\""+Instance.WorkspaceId+"\")' class='decommission'>Decommission</a>";
    }
-   Div += "</td></tr>";
-   Div += "</table>";
+   Div += "</td>";
 
+   Div += "</tr>";
    HTML += Div;
    WorkspacesCount++;
   }
 
   if (WorkspacesCount > 0) {
+   if (AdminList) {
+    HTML = "<tr><th>Username</th><th>WorkSpace ID</th><th>Region</th><th>State</th><th>Running Mode</th><th>IP Address</th><th>Connected</th><th>Reg Code</th></tr>"+HTML;
+   }
+   else {
+    HTML = "<tr><th>WorkSpace ID</th><th>Region</th><th>State</th><th>IP Address</th><th>Reg Code</th></tr>"+HTML;
+   }
+   HTML = "<table class='workspacesinfo'>"+HTML;
    HTML = "<h1>"+(AdminList ? "All" : "Your")+" Workspaces</h1>"+HTML;
+   HTML += "</table>";
   }
  }
  else if (JSONResult.Message != undefined) {

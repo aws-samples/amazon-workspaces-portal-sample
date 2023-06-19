@@ -54,10 +54,6 @@ table.workspacesinfo td {
  padding: 10px; 
 }
 
-table.workspacesinfo td.title {
- font-weight: bolder;
-}
-
 table.workspacesinfo td.link, table.workspacesinfo td.actions {
  text-align: center;
 }
@@ -98,31 +94,26 @@ table.workspacesinfo td.actions a.decommission, table.workspacesinfo td.actions 
 }
 
 table.workspacesinfo td[class^="state-"] {
- color: white;
  font-weight: bolder;
 }
 
-table.workspacesinfo td[class^="state-"] span {
- padding: 8px;
+table.workspacesinfo td.state-available, table.workspaces td.state-starting {
+ color: green;
 }
 
-table.workspacesinfo td.state-available span, table.workspaces td.state-starting span {
- background-color: green;
+table.workspacesinfo td.state-suspended, table.workspacesinfo td.state-stopping,
+table.workspacesinfo td.state-rebuilding {
+ color: yellow;
 }
 
-table.workspacesinfo td.state-suspended span, table.workspacesinfo td.state-stopping span,
-table.workspacesinfo td.state-rebuilding span {
- background-color: yellow;
-}
-
-table.workspacesinfo td.state-stopped span,   table.workspacesinfo td.state-pending span,
-table.workspacesinfo td.state-unhealthy span, table.workspacesinfo td.state-rebooting span,
-table.workspacesinfo td.state-rebooting span {
- background-color: orange;
+table.workspacesinfo td.state-stopped,   table.workspacesinfo td.state-pending,
+table.workspacesinfo td.state-unhealthy, table.workspacesinfo td.state-rebooting,
+table.workspacesinfo td.state-rebooting {
+ color: orange;
 }
 
 
-table.workspacesinfo td.state-impaired span,   table.workspacesinfo td.state-unhealthy span,
-table.workspacesinfo td.state-inoperable span, table.workspacesinfo td.state-error span {
- background-color: red;
+table.workspacesinfo td.state-impaired,   table.workspacesinfo td.state-unhealthy,
+table.workspacesinfo td.state-inoperable, table.workspacesinfo td.state-error {
+ color: red;
 }
