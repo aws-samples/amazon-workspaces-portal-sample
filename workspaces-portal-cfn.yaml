@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: 2010-09-09
 
 #
 # Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -56,9 +56,9 @@ Resources:
       Bucket: !Ref S3Bucket
       PolicyDocument:
         Statement:
-          - Action: "s3:GetObject"
+          - Action: s3:GetObject
             Principal: "*"
-            Effect: "Allow"
+            Effect: Allow
             Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
 
   DynamoDBTable:
@@ -72,58 +72,58 @@ Resources:
         - AttributeName: "WorkspaceId"
           KeyType: "HASH"
       ProvisionedThroughput: 
-        ReadCapacityUnits: "10"
-        WriteCapacityUnits: "10"
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
 
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
-          - Effect: "Allow"
+          - Effect: Allow
             Principal:
               Service:
-                - "lambda.amazonaws.com"
+                - lambda.amazonaws.com
             Action:
-              - "sts:AssumeRole"
+              - sts:AssumeRole
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
         - PolicyName: DynamoDBPolicy
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
               - Action:
-                - "dynamodb:UpdateItem"
-                - "dynamodb:Scan"
-                - "dynamodb:GetItem"
-                - "dynamodb:PutItem"
-                - "dynamodb:DeleteItem"
-                Effect: "Allow"
+                - dynamodb:UpdateItem
+                - dynamodb:Scan
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                Effect: Allow
                 Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DDBTable}"
         - PolicyName: WorkspacesPolicy
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
               - Action:
-                - "workspaces:DescribeWorkspaces"
-                - "workspaces:RebootWorkspaces"
-                - "workspaces:RebuildWorkspaces"
-                - "workspaces:TerminateWorkspaces"
-                - "workspaces:DescribeWorkspaceDirectories"
-                - "workspaces:StopWorkspaces"
-                - "workspaces:StartWorkspaces"
-                - "workspaces:DescribeWorkspacesConnectionStatus"
-                Effect: "Allow"
+                - workspaces:DescribeWorkspaces
+                - workspaces:RebootWorkspaces
+                - workspaces:RebuildWorkspaces
+                - workspaces:TerminateWorkspaces
+                - workspaces:DescribeWorkspaceDirectories
+                - workspaces:StopWorkspaces
+                - workspaces:StartWorkspaces
+                - workspaces:DescribeWorkspacesConnectionStatus
+                Effect: Allow
                 Resource: "*"
         - PolicyName: EC2Policy
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
               - Action:
-                - "ec2:DescribeRegions"
-                Effect: "Allow"
+                - ec2:DescribeRegions
+                Effect: Allow
                 Resource: "*"
 
   LambdaFunctionFindInstances:
@@ -135,10 +135,10 @@ Resources:
         S3Bucket: !Sub "cfn-code-${AWS::Region}"
         S3Key: "lambda_workspaces_import.zip"
       Description: "Workspaces portal function to find all Workspaces instances in all applicable regions."
-      Handler: "lambda_workspaces_import.lambda_handler"
+      Handler: lambda_workspaces_import.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.10"
-      Timeout: "300"
+      Runtime: python3.11
+      Timeout: 300
       Environment:
         Variables:
           DynamoDBTableName: !Ref DDBTable
@@ -152,10 +152,10 @@ Resources:
         S3Bucket: !Sub "cfn-code-${AWS::Region}"
         S3Key: "lambda_workspaces_actions.zip"
       Description: "Workspaces portal function to perform actions as called by API Gateway."
-      Handler: "lambda_workspaces_actions.lambda_handler"
+      Handler: lambda_workspaces_actions.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.10"
-      Timeout: "10"
+      Runtime: python3.11
+      Timeout: 10
       Environment:
         Variables:
           DynamoDBTableName: !Ref DDBTable
@@ -169,10 +169,10 @@ Resources:
         S3Bucket: !Sub "cfn-code-${AWS::Region}"
         S3Key: "lambda_workspaces_list_instances.zip"
       Description: "Workspaces portal function to return a list of Workspaces instances when called by API Gateway."
-      Handler: "lambda_workspaces_list_instances.lambda_handler"
+      Handler: lambda_workspaces_list_instances.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.10"
-      Timeout: "10"
+      Runtime: python3.11
+      Timeout: 10
       Environment:
         Variables:
           DynamoDBTableName: !Ref DDBTable
@@ -186,9 +186,9 @@ Resources:
         S3Bucket: !Sub "cfn-code-${AWS::Region}"
         S3Key: "lambda_workspaces_reaper.zip"
       Description: "Workspaces portal function to remove deleted Workspaces instances from the DynamoDB table."
-      Handler: "lambda_workspaces_reaper.lambda_handler"
+      Handler: lambda_workspaces_reaper.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      Runtime: "python3.10"
+      Runtime: python3.11
       Timeout: "300"
       Environment:
         Variables:
@@ -384,7 +384,7 @@ Resources:
       PathPart: "user"
 
   APIGWMethodUser:
-    Type: "AWS::ApiGateway::Method"
+    Type: AWS::ApiGateway::Method
     DependsOn: LambdaRole
     Properties:
       ResourceId: !Ref APIGatewayResourceUser
@@ -410,7 +410,7 @@ Resources:
             method.response.header.Access-Control-Allow-Origin: False
 
   APIGWOptionsMethodUser:
-    Type: "AWS::ApiGateway::Method"
+    Type: AWS::ApiGateway::Method
     Properties:
       ResourceId: !Ref APIGatewayResourceUser
       RestApiId: !Ref APIGateway
