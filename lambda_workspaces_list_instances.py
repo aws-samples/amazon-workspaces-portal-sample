@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 #
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this
 # software and associated documentation files (the "Software"), to deal in the Software
@@ -24,12 +24,11 @@ import logging
 import json
 import base64
 
-Logger       = None
-DDBTableName = "WorkspacesPortal"
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+
+DDBTableName = os.environ.get("DynamoDBTableName", "WorkspacesPortal")
 
 def ParseJWT(Token):
-    global Logger
-    
     Auth = Token.split(".")[1]
     
     MissingPadding = len(Auth)%4
@@ -38,38 +37,30 @@ def ParseJWT(Token):
     try:
         AuthDict = json.loads(base64.urlsafe_b64decode(Auth))
     except Exception as e:
-        Logger.error("Could not parse JWT: "+str(e)+" "+Token)
+        logging.error("Could not parse JWT: "+str(e)+" "+Token)
         AuthDict = {}
 
     return(AuthDict)
 
 def lambda_handler(event, context):
-    global Logger,DDBTableName
-    
-    logging.basicConfig()
-    Logger = logging.getLogger()
-    Logger.setLevel(logging.INFO)
-
-    if os.environ.get("DynamoDBTableName") is not None: DDBTableName = os.environ.get("DynamoDBTableName")
-
     Response               = {}
     Response["statusCode"] = 200
     Response["headers"]    = {"Access-Control-Allow-Origin": "*"}
     Response["body"]       = ""
 
     if "headers" not in event:
-        Logger.error("No headers supplied: "+str(event))
+        logging.error("No headers supplied: "+str(event))
         Response["body"] = '{"Error":"No headers supplied."}'
         return(Response)
         
     if "Authorization" not in event["headers"]:
-        Logger.error("No Authorization header supplied: "+str(event))
+        logging.error("No Authorization header supplied: "+str(event))
         Response["body"] = '{"Error":"No authorization header supplied."}'
         return(Response)
         
     AuthInfo = ParseJWT(event["headers"]["Authorization"])
     if "identities" not in AuthInfo:
-        Logger.error("No identity information in JWT")
+        logging.error("No identity information in JWT")
         Response["body"] = '{"Error":"No identity information in authorization."}'
         return(Response)
         
@@ -85,7 +76,7 @@ def lambda_handler(event, context):
     except:
         pass
             
-    Logger.info("Username: "+Username+" ADGroups: "+ADGroups+ " ListAll: "+str(ListAll))
+    logging.info("Username: "+Username+" ADGroups: "+ADGroups+ " ListAll: "+str(ListAll))
 
     Table = boto3.resource("dynamodb").Table(DDBTableName)
     Expression = Attr("UserName").eq(Username)
@@ -93,7 +84,7 @@ def lambda_handler(event, context):
     StartKey       = {}
     WorkspacesList = []
     while True: # Loop until no more items come from the DDB Scan
-        Logger.info("DDB scan loop, StartKey="+str(StartKey))
+        logging.info("DDB scan loop, StartKey="+str(StartKey))
         try:
             if len(StartKey) == 0:  
                 if ListAll:
@@ -106,12 +97,12 @@ def lambda_handler(event, context):
                 else:
                     Result = Table.scan(FilterExpression=Expression, ExclusiveStartKey=StartKey)
         except Exception as e:
-            Logger.error("DynamoDB error: "+str(e))
+            logging.error("DynamoDB error: "+str(e))
             Response["body"] = '{"Error":"DynamoDB scan error."}'
             return(Response)
 
         for Workspace in Result["Items"]:
-            Logger.info("Processing "+Workspace["WorkspaceId"])
+            logging.info("Processing "+Workspace["WorkspaceId"])
             
             # Need to convert Decimal() to actual numbers before returning JSON
             if "LastConnected" in Workspace: Workspace["LastConnected"] = int(Workspace["LastConnected"])

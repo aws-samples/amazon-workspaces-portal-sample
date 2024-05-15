@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 #
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this
 # software and associated documentation files (the "Software"), to deal in the Software
@@ -24,19 +24,19 @@ import time
 import json
 from botocore.exceptions import ClientError,EndpointConnectionError
 
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+
+DDBTableName = os.environ.get("DynamoDBTableName", "WorkspacesPortal")
+
 RegistrationCodes = {}
-Logger            = None
-DDBTableName      = "WorkspacesPortal"
 
 def GetRegCode(Client, DirectoryId):
-    global Logger
-    
     if DirectoryId in RegistrationCodes: return(RegistrationCodes[DirectoryId])
     
     try:
         DirectoryList = Client.describe_workspace_directories()
     except Exception as e:
-        Logger.error("Did not get list of directories: "+str(e))
+        logging.error("Did not get list of directories: "+str(e))
         return("")
         
     for Dir in DirectoryList["Directories"]:
@@ -47,23 +47,10 @@ def GetRegCode(Client, DirectoryId):
     return("")
         
 def lambda_handler(event, context):
-    global Logger,DDBTableName
-    
-    logging.basicConfig()
-    logging.getLogger('boto3').setLevel(logging.CRITICAL)
-    logging.getLogger('botocore').setLevel(logging.CRITICAL)
-    logging.getLogger('s3transfer').setLevel(logging.CRITICAL)
-    logging.getLogger('urllib3').setLevel(logging.CRITICAL)
-    Logger = logging.getLogger()
-    level = logging.getLevelName(os.environ.get("LOGLEVEL",'INFO'))
-    Logger.setLevel(level)
-
-    if os.environ.get("DynamoDBTableName") is not None: DDBTableName = os.environ.get("DynamoDBTableName")
-
     Regions = []
     if os.environ.get("REGIONLIST") is not None:
         Regions = os.environ.get("REGIONLIST").split(",")
-        Logger.info("Regions: "+",".join(Regions))
+        logging.info("Regions: "+",".join(Regions))
     else:
         try:
             EC2 = boto3.client("ec2")
@@ -71,12 +58,12 @@ def lambda_handler(event, context):
             for Region in Response["Regions"]:
                 Regions.append(Region["RegionName"])
         except Exception as e:
-            Logger.error("Unable to get a list of regions: "+str(e))
+            logging.error("Unable to get a list of regions: "+str(e))
             Regions.append("us-east-1")
-        Logger.info("All regions: "+"".join(Regions))
+        logging.info("All regions: "+"".join(Regions))
 
     for TargetRegion in Regions:
-        Logger.info("Checking: "+TargetRegion)
+        logging.info("Checking: "+TargetRegion)
         WorkspacesClient = boto3.client("workspaces", region_name=TargetRegion)
         paginator = WorkspacesClient.get_paginator("describe_workspaces")
      
@@ -96,14 +83,14 @@ def lambda_handler(event, context):
             )
             logging.info("Found %s workspaces", len(ListResponse["Workspaces"]))
         except EndpointConnectionError as e:
-            Logger.warning("Could not connect to endpoint in region "+TargetRegion)
+            logging.warning("Could not connect to endpoint in region "+TargetRegion)
             continue
         except Exception as e:
-            Logger.error("Failed to get Workspaces list for region "+TargetRegion+" - "+str(e))
+            logging.error("Failed to get Workspaces list for region "+TargetRegion+" - "+str(e))
             continue
             
         if len(ListResponse["Workspaces"]) == 0:
-            Logger.info("  No Workspaces instances found in region "+TargetRegion)
+            logging.info("  No Workspaces instances found in region "+TargetRegion)
             continue
 
         #
@@ -134,7 +121,7 @@ def lambda_handler(event, context):
 
         DynamoDBClient = boto3.client("dynamodb")
         for Instance in ListResponse["Workspaces"]:
-            Logger.info("  WorkspaceId: "+Instance["WorkspaceId"])
+            logging.info("  WorkspaceId: "+Instance["WorkspaceId"])
 
             Item = {"WorkspaceId":  {"S":Instance["WorkspaceId"]},
                     "UserName":     {"S":Instance["UserName"]},
@@ -148,10 +135,10 @@ def lambda_handler(event, context):
             if "ComputerName"          in Instance:          Item["ComputerName"]  = {"S":Instance["ComputerName"]}
             if "IpAddress"             in Instance:          Item["IPAddress"]     = {"S":Instance["IpAddress"]}
             if Instance["WorkspaceId"] in LastConnectedTime: Item["LastConnected"] = {"N":LastConnectedTime[Instance["WorkspaceId"]]}
-            Logger.debug(
+            logging.debug(
                 "  WorkspaceId: " + Instance["WorkspaceId"] + " " + json.dumps(Item)
             )
             try:
                 DynamoDBClient.put_item(TableName=DDBTableName, Item=Item)
             except ClientError as e:
-                Logger.error("DynamoDB error: "+e.response["Error"]["Message"])
+                logging.error("DynamoDB error: "+e.response["Error"]["Message"])

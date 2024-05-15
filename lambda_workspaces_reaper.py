@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 #
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this
 # software and associated documentation files (the "Software"), to deal in the Software
@@ -22,22 +22,15 @@ import os
 import logging
 from botocore.exceptions import ClientError
 
-Logger       = None
-DDBTableName = "WorkspacesPortal"
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+
+DDBTableName = os.environ.get("DynamoDBTableName", "WorkspacesPortal")
 
 def Deserialise(DDBItem):
     for Key in DDBItem:
         return(DDBItem[Key])
 
 def lambda_handler(event, context):
-    global Logger,DDBTableName
-
-    logging.basicConfig()
-    Logger = logging.getLogger()
-    Logger.setLevel(logging.INFO)
- 
-    if os.environ.get("DynamoDBTableName") is not None: DDBTableName = os.environ.get("DynamoDBTableName")
-
     #
     # First scan for Workspaces instances that don't exist any more
     #
@@ -46,7 +39,7 @@ def lambda_handler(event, context):
     StartKey       = {}
     WorkspacesList = []
     while True: # Loop until no more items from the DDB scan
-        Logger.info("DDB scan loop, StartKey="+str(StartKey))
+        logging.info("DDB scan loop, StartKey="+str(StartKey))
         
         try:
             if len(StartKey) == 0:
@@ -59,7 +52,7 @@ def lambda_handler(event, context):
                                              AttributesToGet=["WorkspaceId","Region","ComputerName","UserName"],
                                              ExclusiveStartKey=StartKey)
         except ClientError as e:
-            Logger.error("DynamoDB error: "+e.response['Error']['Message'])
+            logging.error("DynamoDB error: "+e.response['Error']['Message'])
             return
 
         for Workspace in Result["Items"]:
@@ -100,6 +93,5 @@ def lambda_handler(event, context):
             Response = DynamoDBClient.delete_item(TableName=DDBTableName, Key={"WorkspaceId":Item["WorkspaceId"]})
             logging.info("  Instance removed")
         except ClientError as e:
-            Logger.error("DynamoDB error: "+e.response['Error']['Message'])
+            logging.error("DynamoDB error: "+e.response['Error']['Message'])
             return
-            
