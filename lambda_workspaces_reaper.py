@@ -22,7 +22,8 @@ import os
 import logging
 from botocore.exceptions import ClientError
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 DDBTableName = os.environ.get("DynamoDBTableName", "WorkspacesPortal")
 
@@ -39,7 +40,7 @@ def lambda_handler(event, context):
     StartKey       = {}
     WorkspacesList = []
     while True: # Loop until no more items from the DDB scan
-        logging.info("DDB scan loop, StartKey="+str(StartKey))
+        logger.info("DDB scan loop, StartKey="+str(StartKey))
         
         try:
             if len(StartKey) == 0:
@@ -52,7 +53,7 @@ def lambda_handler(event, context):
                                              AttributesToGet=["WorkspaceId","Region","ComputerName","UserName"],
                                              ExclusiveStartKey=StartKey)
         except ClientError as e:
-            logging.error("DynamoDB error: "+e.response['Error']['Message'])
+            logger.error("DynamoDB error: "+e.response['Error']['Message'])
             return
 
         for Workspace in Result["Items"]:
@@ -67,11 +68,11 @@ def lambda_handler(event, context):
         WorkspaceId = Deserialise(Item["WorkspaceId"])
         Region      = Deserialise(Item["Region"])
 
-        logging.info("Looking for "+WorkspaceId+" in "+Region)
+        logger.info("Looking for "+WorkspaceId+" in "+Region)
         WorkspacesClient = boto3.client("workspaces", region_name=Region)
         InstanceInfo = WorkspacesClient.describe_workspaces(WorkspaceIds=[WorkspaceId])
         if len(InstanceInfo["Workspaces"]) > 0:
-            logging.info("  Instance alive - continuing")
+            logger.info("  Instance alive - continuing")
             continue
 
         #
@@ -79,7 +80,7 @@ def lambda_handler(event, context):
         #
         if "ComputerName" in Item:
             ComputerName = Deserialise(Item["ComputerName"])
-            logging.info("  Removing "+ComputerName+" from AD")
+            logger.info("  Removing "+ComputerName+" from AD")
 
             #
             # Here we should connect to AD and remove the Computer object
@@ -87,11 +88,11 @@ def lambda_handler(event, context):
             # in the target AD.
             #
         else:
-            logging.info("  No computer name found - cannot remove from AD")
+            logger.info("  No computer name found - cannot remove from AD")
 
         try:
             Response = DynamoDBClient.delete_item(TableName=DDBTableName, Key={"WorkspaceId":Item["WorkspaceId"]})
-            logging.info("  Instance removed")
+            logger.info("  Instance removed")
         except ClientError as e:
-            logging.error("DynamoDB error: "+e.response['Error']['Message'])
+            logger.error("DynamoDB error: "+e.response['Error']['Message'])
             return

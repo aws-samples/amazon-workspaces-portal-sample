@@ -24,7 +24,8 @@ import logging
 import json
 import base64
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logger.INFO)
 
 DDBTableName = os.environ.get("DynamoDBTableName", "WorkspacesPortal")
 
@@ -37,7 +38,7 @@ def ParseJWT(Token):
     try:
         AuthDict = json.loads(base64.urlsafe_b64decode(Auth))
     except Exception as e:
-        logging.error("Could not parse JWT: "+str(e)+" "+Token)
+        logger.error("Could not parse JWT: "+str(e)+" "+Token)
         AuthDict = {}
 
     return(AuthDict)
@@ -49,18 +50,18 @@ def lambda_handler(event, context):
     Response["body"]       = ""
 
     if "headers" not in event:
-        logging.error("No headers supplied: "+str(event))
+        logger.error("No headers supplied: "+str(event))
         Response["body"] = '{"Error":"No headers supplied."}'
         return(Response)
         
     if "Authorization" not in event["headers"]:
-        logging.error("No Authorization header supplied: "+str(event))
+        logger.error("No Authorization header supplied: "+str(event))
         Response["body"] = '{"Error":"No authorization header supplied."}'
         return(Response)
         
     AuthInfo = ParseJWT(event["headers"]["Authorization"])
     if "identities" not in AuthInfo:
-        logging.error("No identity information in JWT")
+        logger.error("No identity information in JWT")
         Response["body"] = '{"Error":"No identity information in authorization."}'
         return(Response)
         
@@ -76,7 +77,7 @@ def lambda_handler(event, context):
     except:
         pass
             
-    logging.info("Username: "+Username+" ADGroups: "+ADGroups+ " ListAll: "+str(ListAll))
+    logger.info("Username: "+Username+" ADGroups: "+ADGroups+ " ListAll: "+str(ListAll))
 
     Table = boto3.resource("dynamodb").Table(DDBTableName)
     Expression = Attr("UserName").eq(Username)
@@ -84,7 +85,7 @@ def lambda_handler(event, context):
     StartKey       = {}
     WorkspacesList = []
     while True: # Loop until no more items come from the DDB Scan
-        logging.info("DDB scan loop, StartKey="+str(StartKey))
+        logger.info("DDB scan loop, StartKey="+str(StartKey))
         try:
             if len(StartKey) == 0:  
                 if ListAll:
@@ -97,12 +98,12 @@ def lambda_handler(event, context):
                 else:
                     Result = Table.scan(FilterExpression=Expression, ExclusiveStartKey=StartKey)
         except Exception as e:
-            logging.error("DynamoDB error: "+str(e))
+            logger.error("DynamoDB error: "+str(e))
             Response["body"] = '{"Error":"DynamoDB scan error."}'
             return(Response)
 
         for Workspace in Result["Items"]:
-            logging.info("Processing "+Workspace["WorkspaceId"])
+            logger.info("Processing "+Workspace["WorkspaceId"])
             
             # Need to convert Decimal() to actual numbers before returning JSON
             if "LastConnected" in Workspace: Workspace["LastConnected"] = int(Workspace["LastConnected"])
